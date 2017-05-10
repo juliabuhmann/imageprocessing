@@ -54,7 +54,8 @@ Skeletonize::Skeletonize(const GraphVolume& graphVolume) :
 	_graphVolume(graphVolume),
 	_distanceMap(_graphVolume.graph()),
 	_dijkstra(_graphVolume.graph(), _distanceMap),
-	_nodeLabels(_graphVolume.graph(), Inside)
+	_nodeLabels(_graphVolume.graph(), Inside),
+	_graphMaskVolume(GraphVolume())
 	{ 	
 	#if defined(USE_PROGRAM_OPTIONS)
 	_parameters.boundaryWeight = optionSkeletonBoundaryWeight;
@@ -77,7 +78,22 @@ Skeletonize::Skeletonize(const GraphVolume& graphVolume, Parameters user_paramet
 	_distanceMap(_graphVolume.graph()),
 	_dijkstra(_graphVolume.graph(), _distanceMap),
 	_nodeLabels(_graphVolume.graph(), Inside),
+	_graphMaskVolume(GraphVolume()),
 	_parameters(user_parameters) {}
+
+Skeletonize::Skeletonize(const GraphVolume& graphVolume, const GraphVolume& graphVolMask, Parameters user_parameters) :
+ 	_boundaryDistance(
+			vigra::Shape3(
+					graphVolMask.getDiscreteBoundingBox().width()  + 2,
+					graphVolMask.getDiscreteBoundingBox().height() + 2,
+					graphVolMask.getDiscreteBoundingBox().depth()  + 2
+ 			)),
+	_graphVolume(graphVolume),
+	_distanceMap(_graphVolume.graph()),
+	_dijkstra(_graphVolume.graph(), _distanceMap),
+	_nodeLabels(_graphVolume.graph(), Inside),
+	_graphMaskVolume(graphVolMask),
+	_parameters(user_parameters) {_useMask = true;}
 
 
 Skeleton
@@ -124,8 +140,16 @@ Skeletonize::initializeEdgeMap() {
 	pitch[2] = _graphVolume.getResolutionZ();
 
 	_boundaryDistance = 0;
-	for (GraphVolume::NodeIt n(_graphVolume.graph()); n != lemon::INVALID; ++n)
+	for (GraphVolume::NodeIt n(_graphVolume.graph()); n != lemon::INVALID; ++n) {
 		boundaryDistance(_graphVolume.positions()[n]) = 1.0;
+	}
+	if (_useMask){
+		LOG_DEBUG(skeletonizelog) << "using binary mask for distance transform" << std::endl;
+		for (GraphVolume::NodeIt n(_graphMaskVolume.graph()); n != lemon::INVALID; ++n) {
+			boundaryDistance(_graphMaskVolume.positions()[n]) = 1.0;
+		}
+
+	}
 
 	if (_graphVolume.getDiscreteBoundingBox().depth() == 1) {
 
@@ -139,10 +163,9 @@ Skeletonize::initializeEdgeMap() {
 				pitch);
 
 	} else {
-
 		vigra::separableMultiDistSquared(
-				_boundaryDistance,
-				_boundaryDistance,
+				_boundaryDistance, /* source */
+				_boundaryDistance, /* dest */
 				false,  /* compute distance from object (non-zero) to background (0) */
 				pitch);
 	}

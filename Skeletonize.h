@@ -35,6 +35,7 @@ public:
 	 */
 	Skeletonize(const GraphVolume& graph);
 	Skeletonize(const GraphVolume& graphVolume, Parameters user_parameters);
+	Skeletonize(const GraphVolume& graphVolume, const GraphVolume& graphVolMask, Parameters user_parameters);
 
 	/**
 	 * Extract the skeleton from the given volume.
@@ -65,12 +66,17 @@ private:
 	void initializeEdgeMap();
 
 	inline float& boundaryDistance(const Position& p) {
-
+		if (!_useMask)
 		return _boundaryDistance[
 				vigra::Shape3(
 						p.x() + 1 - _graphVolume.getDiscreteBoundingBox().min().x(),
 						p.y() + 1 - _graphVolume.getDiscreteBoundingBox().min().y(),
 						p.z() + 1 - _graphVolume.getDiscreteBoundingBox().min().z())];
+		else return _boundaryDistance[
+		             				vigra::Shape3(
+		             						p.x() + 1 - _graphMaskVolume.getDiscreteBoundingBox().min().x(),
+		             						p.y() + 1 - _graphMaskVolume.getDiscreteBoundingBox().min().y(),
+		             						p.z() + 1 - _graphMaskVolume.getDiscreteBoundingBox().min().z())];
 	}
 
 	/**
@@ -139,8 +145,14 @@ private:
 
 	std::vector<GraphVolume::Graph::Node> _boundary;
 	
+	// binary mask in order to calculate distance map.
+	bool _useMask = false;
+	const GraphVolume& _graphMaskVolume;
+
 	Parameters _parameters;
 	float _maxBoundaryDistance2;
+
+
 
 };
 
